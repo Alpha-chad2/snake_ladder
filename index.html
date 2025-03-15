@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kids Snake & Ladder</title>
+  <style>
+    :root {
+      --primary: #FF6B6B;
+      --secondary: #4ECDC4;
+      --background: #FFF9EC;
+      --text: #2D3047;
+      --snake: #FF0000;
+      --ladder: #00C853;
+      --cell-even: #FFE66D;
+      --cell-odd: #FF9A8B;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Comic Neue', cursive;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      padding: 2rem;
+    }
+    h1 {
+      color: white;
+      margin-bottom: 2rem;
+      text-align: center;
+      font-size: 2.5rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    .game-container {
+      display: grid;
+      grid-template-columns: auto 300px;
+      gap: 2rem;
+      background: var(--background);
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      position: relative;
+      align-items: center;
+      border: 5px solid white;
+    }
+    .board {
+      position: relative;
+      width: 600px;
+      height: 600px;
+      display: flex;
+      flex-direction: column-reverse;
+      border: 4px solid var(--primary);
+      border-radius: 15px;
+      overflow: hidden;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      flex: 1;
+    }
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      position: relative;
+      font-size: 18px;
+      border: 1px solid rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+    }
+    .cell:nth-child(odd) { background: var(--cell-odd); }
+    .cell:nth-child(even) { background: var(--cell-even); }
+    .cell:hover {
+      transform: scale(1.05);
+      z-index: 2;
+    }
+    .player {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      position: absolute;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: white;
+      border: 2px solid white;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+    }
+    .player.moving {
+      animation: playerJump 0.3s ease-in-out;
+    }
+    @keyframes playerJump {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.3); }
+    }
+    .player.winner {
+      animation: playerWin 1s infinite alternate;
+      z-index: 20;
+    }
+    @keyframes playerWin {
+      0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) scale(1.5) rotate(360deg); }
+    }
+    .dice-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    .dice {
+      width: 120px;
+      height: 120px;
+      background: white;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: diceFloat 2s ease-in-out infinite;
+    }
+    .dice:hover {
+      background: #f0f0f0;
+      transform: scale(1.05);
+    }
+    .dice.active {
+      animation: diceRoll 0.5s ease-out;
+    }
+    @keyframes diceRoll {
+      0% { transform: rotateX(0) rotateY(0) rotateZ(0); }
+      100% { transform: rotateX(720deg) rotateY(720deg) rotateZ(720deg); }
+    }
+    @keyframes diceFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .status {
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 700;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+      min-width: 200px;
+      font-size: 1.2rem;
+      border: 3px solid var(--primary);
+    }
+    .snake-head::after {
+      content: '🐍';
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      font-size: 1.5rem;
+    }
+    .ladder-base::after {
+      content: '🌱';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      font-size: 1.5rem;
+    }
+    .ladder-top::after {
+      content: '🎋';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 1.5rem;
+    }
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      text-align: center;
+      width: 300px;
+    }
+    .game-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .player-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .player-stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .game-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 10px;
+      background: var(--primary);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+    }
+    .confetti {
+      width: 10px;
+      height: 10px;
+      border-radius: 0;
+      position: absolute;
+    }
+    .timer {
+      font-size: 1.2rem;
+      margin-top: 0.5rem;
+      font-weight: bold;
+    }
+    .power-ups {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+      justify-content: center;
+    }
+    .power-up {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border-radius: 10px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s;
+    }
+    .power-up:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+    }
+    .power-up.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #diceHistory {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .dice-history-item {
+      width: 25px;
+      height: 25px;
+      background: white;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>🌈 Snake & Ladder 🎲</h1>
+
+  <!-- Modal for player details and game options -->
+  <div id="playerModal" class="modal">
+    <div class="modal-content">
+      <h2>Enter Player Details</h2>
+      <div class="players-input">
+        <label for="playerCount">Number of Players:</label>
+        <select id="playerCount">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="game-options">
+        <label for="gameSpeed">Game Speed:</label>
+        <select id="gameSpeed">
+          <option value="fast">Fast</option>
+          <option value="normal" selected>Normal</option>
+          <option value="slow">Slow</option>
+        </select>
+        <div>
+          <label>
+            <input type="checkbox" id="enablePowerUps" checked>
+            Enable Power-ups
+          </label>
+        </div>
+        <div>
+          <label>
+            <input type="checkbox" id="enableSpecialEvents" checked>
+            Enable Special Events
+          </label>
+        </div>
+      </div>
+      <div id="playerNamesContainer"></div>
+      <button id="startGameBtn" class="btn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- Main game container -->
+  <div class="game-container" id="gameContainer" style="display: none;">
+    <div class="board" id="board"></div>
+    
+    <div class="dice-container">
+      <div class="status" id="status">Waiting to Start...</div>
+      <div class="timer" id="gameTimer">Time: 00:00</div>
+      <div id="diceHistory"></div>
+      <div class="dice" id="dice">🎲</div>
+      <div class="power-ups">
+        <!-- Shield and Boost power-ups -->
+        <div class="power-up" id="shieldPowerUp" title="Snake Shield">🛡️</div>
+        <div class="power-up" id="boostPowerUp" title="Double Move">⚡</div>
+      </div>
+      <div class="player-stats" id="playerStats"></div>
+      <div class="game-controls">
+        <button class="btn" id="resetBtn">Restart Game</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Game settings for snakes and ladders
+    const snakes = { 
+      16: 6, 48: 26, 45: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 
+    };
+    const ladders = { 
+      2: 23, 4: 14, 8: 30, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 
+    };
+
+    // Game state variables
+    let players = [];
+    let currentPlayer = 0;
+    let isRolling = false;
+    let gameStartTime;
+    let gameTimer;
+    let gameSpeed = 'normal';
+    let enablePowerUps = true;
+    let enableSpecialEvents = true;
+    let diceHistory = [];
+    let hasWinner = false;
+
+    // Speed settings (animation durations in ms)
+    const speedSettings = {
+      fast: { move: 100, wait: 300 },
+      normal: { move: 200, wait: 500 },
+      slow: { move: 300, wait: 800 }
+    };
+
+    // Modal elements
+    const playerModal = document.getElementById('playerModal');
+    const playerCountSelect = document.getElementById('playerCount');
+    const playerNamesContainer = document.getElementById('playerNamesContainer');
+    const startGameBtn = document.getElementById('startGameBtn');
+    const gameSpeedSelect = document.getElementById('gameSpeed');
+    const enablePowerUpsCheckbox = document.getElementById('enablePowerUps');
+    const enableSpecialEventsCheckbox = document.getElementById('enableSpecialEvents');
+
+    // Game elements
+    const gameContainer = document.getElementById('gameContainer');
+    const board = document.getElementById('board');
+    const diceElement = document.getElementById('dice');
+    const statusElement = document.getElementById('status');
+    const gameTimerElement = document.getElementById('gameTimer');
+    const playerStatsElement = document.getElementById('playerStats');
+    const diceHistoryElement = document.getElementById('diceHistory');
+
+    // Power-up elements
+    const shieldPowerUp = document.getElementById('shieldPowerUp');
+    const boostPowerUp = document.getElementById('boostPowerUp');
+
+    // Update player name fields based on selected count
+    function updatePlayerNameFields() {
+      const count = parseInt(playerCountSelect.value);
+      playerNamesContainer.innerHTML = '';
+      for (let i = 1; i <= count; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Player ${i} Name`;
+        input.required = true;
+        input.id = `playerName${i}`;
+        input.style.margin = '0.5rem 0';
+        input.style.padding = '0.5rem';
+        input.style.width = '90%';
+        playerNamesContainer.appendChild(input);
+      }
+    }
+    playerCountSelect.addEventListener('change', updatePlayerNameFields);
+    updatePlayerNameFields();
+
+    // Update game options
+    gameSpeedSelect.addEventListener('change', () => {
+      gameSpeed = gameSpeedSelect.value;
+    });
+    enablePowerUpsCheckbox.addEventListener('change', () => {
+      enablePowerUps = enablePowerUpsCheckbox.checked;
+    });
+    enableSpecialEventsCheckbox.addEventListener('change', () => {
+      enableSpecialEvents = enableSpecialEventsCheckbox.checked;
+    });
+
+    // Start game on button click
+    startGameBtn.addEventListener('click', () => {
+      const count = parseInt(playerCountSelect.value);
+      gameSpeed = gameSpeedSelect.value;
+      enablePowerUps = enablePowerUpsCheckbox.checked;
+      enableSpecialEvents = enableSpecialEventsCheckbox.checked;
+      
+      players = [];
+      for (let i = 1; i <= count; i++) {
+        const nameInput = document.getElementById(`playerName${i}`);
+        const playerName = nameInput.value.trim() || `Player ${i}`;
+        players.push({
+          id: i,
+          name: playerName,
+          position: 0,
+          color: `hsl(${(i * 360) / count}, 70%, 50%)`,
+          element: document.createElement('div'),
+          moves: 0,
+          ladders: 0,
+          snakes: 0,
+          powerUps: {
+            shield: 1,   // Each player starts with one shield power-up available
+            boost: 1     // and one boost (Double Move) available
+          },
+          // Add flags to track if power-ups are active
+          shieldActive: false,
+          doubleMoveActive: false,
+          history: []
+        });
+      }
+      playerModal.style.display = 'none';
+      gameContainer.style.display = 'grid';
+      
+      createBoard();
+      updatePlayerStats();
+      startGameTimer();
+      
+      statusElement.textContent = `${players[0].name}'s Turn`;
+      updateDiceHistory();
+    });
+
+    // Start game timer
+    function startGameTimer() {
+      gameStartTime = new Date();
+      gameTimer = setInterval(updateGameTimer, 1000);
+    }
+    function updateGameTimer() {
+      const now = new Date();
+      const elapsedMs = now - gameStartTime;
+      const minutes = Math.floor(elapsedMs / 60000);
+      const seconds = Math.floor((elapsedMs % 60000) / 1000);
+      gameTimerElement.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Create board with cells and SVG overlay for snakes and ladders
+    function createBoard() {
+      board.innerHTML = ''; // Removed preview mode div
+      
+      // Create board cells
+      for (let r = 9; r >= 0; r--) {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'row';
+        const visualRow = 9 - r;
+        for (let col = 0; col < 10; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          let number;
+          if (visualRow % 2 === 0) {
+            number = visualRow * 10 + col + 1;
+          } else {
+            number = (visualRow + 1) * 10 - col;
+          }
+          cell.textContent = number;
+          cell.setAttribute('data-cell', number);
+          if (snakes.hasOwnProperty(number)) cell.classList.add('snake-head');
+          if (ladders.hasOwnProperty(number)) cell.classList.add('ladder-base');
+          if (Object.values(ladders).includes(number)) cell.classList.add('ladder-top');
+          rowDiv.appendChild(cell);
+        }
+        board.appendChild(rowDiv);
+      }
+
+      // Create SVG overlay for snakes and ladders
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("id", "overlaySvg");
+      svg.style.position = "absolute";
+      svg.style.width = "100%";
+      svg.style.height = "100%";
+      svg.style.pointerEvents = "none";
+      board.appendChild(svg);
+      drawConnections();
+
+      // Initialize player tokens
+      players.forEach(player => {
+        player.position = 0;
+        const el = player.element;
+        el.className = 'player';
+        el.style.backgroundColor = player.color;
+        el.textContent = player.name.charAt(0).toUpperCase();
+        el.style.zIndex = "10";
+        board.appendChild(el);
+      });
+      // Start all players at cell 1
+      players.forEach(player => moveToPosition(player, 1, false));
+
+      // Show/hide power-ups based on settings (removed shortcut power-up)
+      if (enablePowerUps) {
+        shieldPowerUp.style.display = 'flex';
+        boostPowerUp.style.display = 'flex';
+      } else {
+        shieldPowerUp.style.display = 'none';
+        boostPowerUp.style.display = 'none';
+      }
+    }
+
+    // Draw curved paths for snakes and ladders
+    function drawConnections() {
+      const svg = document.getElementById('overlaySvg');
+      if (!svg) return;
+      svg.innerHTML = '';
+      
+      const drawPath = (start, end, color, isSnake) => {
+        const startCell = document.querySelector(`[data-cell="${start}"]`);
+        const endCell = document.querySelector(`[data-cell="${end}"]`);
+        if (!startCell || !endCell) return;
+        
+        const x1 = startCell.offsetLeft + startCell.offsetWidth / 2;
+        const y1 = startCell.offsetTop + startCell.offsetHeight / 2;
+        const x2 = endCell.offsetLeft + endCell.offsetWidth / 2;
+        const y2 = endCell.offsetTop + endCell.offsetHeight / 2;
+        
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const cpx = x1 + dx / 2 + (Math.random() - 0.5) * dx / 2;
+        const cpy = y1 + dy / 2 + (Math.random() - 0.5) * dy / 2;
+        const d = `M ${x1} ${y1} Q ${cpx} ${cpy}, ${x2} ${y2}`;
+        path.setAttribute("d", d);
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", "6");
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke-linecap", "round");
+        
+        if (!isSnake) {
+          const steps = 5;
+          for (let i = 1; i <= steps; i++) {
+            const t = i / (steps + 1);
+            const qx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cpx + t * t * x2;
+            const qy = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cpy + t * t * y2;
+            const angle = Math.atan2(2 * (1 - t) * (cpy - y1) + 2 * t * (y2 - cpy), 2 * (1 - t) * (cpx - x1) + 2 * t * (x2 - cpx)) + Math.PI / 2;
+            const length = 15;
+            const rx1 = qx - length * Math.cos(angle);
+            const ry1 = qy - length * Math.sin(angle);
+            const rx2 = qx + length * Math.cos(angle);
+            const ry2 = qy + length * Math.sin(angle);
+            const rung = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            rung.setAttribute("x1", rx1);
+            rung.setAttribute("y1", ry1);
+            rung.setAttribute("x2", rx2);
+            rung.setAttribute("y2", ry2);
+            rung.setAttribute("stroke", color);
+            rung.setAttribute("stroke-width", "3");
+            svg.appendChild(rung);
+          }
+        }
+        svg.appendChild(path);
+      };
+
+      Object.entries(snakes).forEach(([start, end]) => drawPath(start, end, "#FF0000", true));
+      Object.entries(ladders).forEach(([start, end]) => drawPath(start, end, "#00C853", false));
+    }
+
+    // Get coordinates for a given board cell
+    function calculatePlayerPosition(position) {
+      const cell = document.querySelector(`[data-cell="${position}"]`);
+      if (!cell) return { left: 0, top: 0 };
+      return {
+        left: cell.offsetLeft + cell.offsetWidth / 2,
+        top: cell.offsetTop + cell.offsetHeight / 2
+      };
+    }
+
+    // Move player to a specific cell with optional animation
+    function moveToPosition(player, position, animate = true) {
+      player.position = position;
+      const coords = calculatePlayerPosition(position);
+      if (animate) {
+        player.element.style.transition = `all ${speedSettings[gameSpeed].move}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+        player.element.classList.add('moving');
+        setTimeout(() => {
+          player.element.classList.remove('moving');
+        }, speedSettings[gameSpeed].move);
+      } else {
+        player.element.style.transition = 'none';
+      }
+      player.element.style.left = `${coords.left}px`;
+      player.element.style.top = `${coords.top}px`;
+    }
+
+    // Update displayed player statistics
+    function updatePlayerStats() {
+      playerStatsElement.innerHTML = '';
+      players.forEach(player => {
+        const statDiv = document.createElement('div');
+        statDiv.className = 'player-stat';
+        statDiv.style.backgroundColor = player.color;
+        statDiv.style.color = 'white';
+        statDiv.innerHTML = `<span>${player.name}</span>
+                             <span>Pos: ${player.position}</span>`;
+        if (players[currentPlayer] && player.id === players[currentPlayer].id) {
+          statDiv.style.border = '2px solid #FFD700';
+        }
+        playerStatsElement.appendChild(statDiv);
+      });
+    }
+
+    // Update dice roll history (last 5 rolls)
+    function updateDiceHistory() {
+      diceHistoryElement.innerHTML = '';
+      const recent = diceHistory.slice(-5);
+      recent.forEach(roll => {
+        const item = document.createElement('div');
+        item.className = 'dice-history-item';
+        item.textContent = roll;
+        diceHistoryElement.appendChild(item);
+      });
+    }
+
+    // Confetti effect for the winner
+    function createConfetti() {
+      const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+      for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        const size = Math.random() * 10 + 5;
+        confetti.style.width = `${size}px`;
+        confetti.style.height = `${size}px`;
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.position = 'absolute';
+        confetti.style.top = `${Math.random() * window.innerHeight}px`;
+        confetti.style.left = `${Math.random() * window.innerWidth}px`;
+        confetti.style.opacity = Math.random();
+        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+        document.body.appendChild(confetti);
+        setTimeout(() => confetti.remove(), 3000);
+      }
+    }
+
+    // Roll dice and move current player
+    diceElement.addEventListener('click', rollDice);
+    function rollDice() {
+      if (isRolling || hasWinner) return;
+      isRolling = true;
+      diceElement.classList.add('active');
+      setTimeout(() => {
+        const roll = Math.floor(Math.random() * 6) + 1;
+        diceElement.textContent = roll;
+        diceHistory.push(roll);
+        updateDiceHistory();
+        moveCurrentPlayer(roll);
+        diceElement.classList.remove('active');
+        isRolling = false;
+      }, speedSettings[gameSpeed].wait);
+    }
+
+    // Handle player move including snakes, ladders, and power-up effects
+    function moveCurrentPlayer(roll) {
+      const player = players[currentPlayer];
+      let newPos = player.position + roll;
+      if (newPos > 100) {
+        newPos = player.position; // Do not move if overshooting
+      }
+      moveToPosition(player, newPos);
+      player.moves++;
+      
+      setTimeout(() => {
+        // If landing on a snake cell...
+        if (snakes[newPos]) {
+          // If the player has an active shield, use it to prevent moving down the snake
+          if (player.shieldActive) {
+            player.shieldActive = false;
+            alert(`${player.name}'s shield protected them from a snake!`);
+            // Remain on the current cell (newPos remains unchanged)
+          } else {
+            player.snakes++;
+            newPos = snakes[newPos];
+            moveToPosition(player, newPos);
+          }
+        } 
+        // Check for ladders
+        else if (ladders[newPos]) {
+          player.ladders++;
+          newPos = ladders[newPos];
+          moveToPosition(player, newPos);
+        }
+        updatePlayerStats();
+        // Check for win condition
+        if (newPos === 100) {
+          statusElement.textContent = `${player.name} Wins!`;
+          player.element.classList.add('winner');
+          hasWinner = true;
+          createConfetti();
+          clearInterval(gameTimer);
+        } else {
+          // If the player rolled a 6, they get another turn regardless
+          if (roll === 6) {
+            statusElement.textContent = `${player.name} rolled a 6! Roll again!`;
+            // Do not change turn
+          } 
+          // If the player activated Double Move (boost), give an extra roll
+          else if (player.doubleMoveActive) {
+            player.doubleMoveActive = false;
+            alert(`${player.name} gets an extra roll from Double Move!`);
+            setTimeout(() => {
+              rollDice();  // Extra roll for the same player
+            }, speedSettings[gameSpeed].wait + 100);
+            return; // Skip calling nextTurn() as the same player continues
+          } else {
+            nextTurn();
+          }
+        }
+      }, speedSettings[gameSpeed].move + 100);
+    }
+
+    // Advance to next player's turn
+    function nextTurn() {
+      currentPlayer = (currentPlayer + 1) % players.length;
+      statusElement.textContent = `${players[currentPlayer].name}'s Turn`;
+      updatePlayerStats();
+    }
+
+    // Restart game
+    document.getElementById('resetBtn').addEventListener('click', resetGame);
+    function resetGame() {
+      players.forEach(player => {
+        player.position = 0;
+        player.moves = 0;
+        player.ladders = 0;
+        player.snakes = 0;
+        player.shieldActive = false;
+        player.doubleMoveActive = false;
+        moveToPosition(player, 1, false);
+        player.element.classList.remove('winner');
+      });
+      currentPlayer = 0;
+      statusElement.textContent = `${players[0].name}'s Turn`;
+      diceHistory = [];
+      updateDiceHistory();
+      hasWinner = false;
+      clearInterval(gameTimer);
+      gameTimerElement.textContent = 'Time: 00:00';
+      startGameTimer();
+    }
+
+    // Power-up activation event listeners
+    shieldPowerUp.addEventListener('click', () => {
+      const player = players[currentPlayer];
+      if (player.powerUps.shield > 0 && !player.shieldActive) {
+        player.shieldActive = true;
+        player.powerUps.shield--;
+        alert('Shield power-up activated!');
+      } else {
+        alert('No shield available or shield already active!');
+      }
+    });
+    boostPowerUp.addEventListener('click', () => {
+      const player = players[currentPlayer];
+      if (player.powerUps.boost > 0 && !player.doubleMoveActive) {
+        player.doubleMoveActive = true;
+        player.powerUps.boost--;
+        alert('Double Move power-up activated!');
+      } else {
+        alert('No boost available or already active!');
+      }
+    });
+  </script>
+</body>
+</html>
